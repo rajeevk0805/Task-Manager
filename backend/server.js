@@ -1,0 +1,68 @@
+import dotenv from "dotenv";
+dotenv.config();
+import userRoutes from "./routes/userRoutes.js";
+import taskRoutes from "./routes/taskRoutes.js";
+import authRoutes from "./routes/authRoutes.js";
+import reportRoutes from "./routes/reportRoutes.js";
+import express from "express";
+import connectDB from "./config/db.js";
+
+import cors from "cors"; // Importing cors middleware
+import path from "path";
+import { fileURLToPath } from 'url';
+import fs from "fs";
+
+const app = express();
+
+// Middleware to handle cors
+app.use(cors(
+    {
+        origin: process.env.CLIENT_URL || "*",
+        methods: ["GET", "POST", "PUT", "DELETE"],
+        allowedHeaders: ["Content-Type", "Authorization"],
+        credentials: true
+    }
+));
+
+// Middleware
+app.use(express.json())
+
+// Connect Database
+connectDB();
+
+// Serve static files from uploads directory
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const uploadDir = path.join(__dirname, 'uploads');
+
+// Ensure uploads directory exists
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+    console.log('Uploads directory created:', uploadDir);
+} else {
+    console.log('Uploads directory exists:', uploadDir);
+}
+
+app.use('/uploads', express.static(uploadDir));
+
+// Routes
+app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/tasks", taskRoutes);
+app.use("/api/reports", reportRoutes)
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'OK', message: 'Backend is running' });
+});
+
+// For Vercel deployment, we need to export the app
+export default app;
+
+// Start Server only when not in Vercel environment
+if (!process.env.VERCEL) {
+    const PORT = process.env.PORT || 5000;
+    app.listen(PORT, () => {
+        console.log(`Server is running on port ${PORT}`);
+    });
+}
