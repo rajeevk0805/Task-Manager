@@ -30,7 +30,13 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
 // Connect Database
 console.log("Connecting to database...");
-connectDB();
+try {
+    await connectDB();
+} catch (error) {
+    console.error("Failed to connect to database:", error);
+    // Continue running even if database connection fails
+    // This allows the upload route to still work
+}
 
 // Serve static files from uploads directory
 const __filename = fileURLToPath(import.meta.url);
@@ -63,6 +69,16 @@ app.use("/api/reports", reportRoutes)
 // Health check endpoint
 app.get('/health', (req, res) => {
     res.status(200).json({ status: 'OK', message: 'Backend is running' });
+});
+
+// Test endpoint for uploads
+app.get('/test-upload', (req, res) => {
+    res.status(200).json({ 
+        status: 'OK', 
+        message: 'Upload endpoint is accessible',
+        uploadDir: uploadDir,
+        uploadDirExists: fs.existsSync(uploadDir)
+    });
 });
 
 // For Vercel deployment, we need to export the app
