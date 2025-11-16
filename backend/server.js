@@ -29,6 +29,7 @@ app.use(express.json({ limit: '10mb' })) // Increase payload limit for file uplo
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
 // Connect Database
+console.log("Connecting to database...");
 connectDB();
 
 // Serve static files from uploads directory
@@ -36,9 +37,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const uploadDir = path.join(__dirname, 'uploads');
 
+console.log("Upload directory path:", uploadDir);
+
 // Ensure uploads directory exists
 try {
     if (!fs.existsSync(uploadDir)) {
+        console.log("Creating uploads directory");
         fs.mkdirSync(uploadDir, { recursive: true });
         console.log('Uploads directory created:', uploadDir);
     } else {

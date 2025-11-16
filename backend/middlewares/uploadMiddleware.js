@@ -20,22 +20,15 @@ try {
 // Use memory storage instead of disk storage for better Vercel compatibility
 const storage = multer.memoryStorage();
 
-// Alternative disk storage configuration with better error handling
-// const storage = multer.diskStorage({
-//   destination: (req, file, cb) => {
-//     cb(null, uploadDir);
-//   },
-//   filename: (req, file, cb) => {
-//     cb(null, Date.now() + "-" + file.originalname);
-//   },
-// });
-
 //file filter
 const fileFilter = (req, file, cb) => {
+  console.log("File filter processing file:", file);
   const allowedTypes = ["image/jpeg", "image/png", "image/jpg"];
   if (allowedTypes.includes(file.mimetype)) {
+    console.log("File type accepted");
     cb(null, true);
   } else {
+    console.log("File type rejected:", file.mimetype);
     cb(new Error("Invalid file type. Only JPEG, PNG, and JPG are allowed."));
   }
 };
