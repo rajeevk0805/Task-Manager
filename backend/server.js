@@ -25,7 +25,8 @@ app.use(cors(
 ));
 
 // Middleware
-app.use(express.json())
+app.use(express.json({ limit: '10mb' })) // Increase payload limit for file uploads
+app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
 // Connect Database
 connectDB();
@@ -36,11 +37,15 @@ const __dirname = path.dirname(__filename);
 const uploadDir = path.join(__dirname, 'uploads');
 
 // Ensure uploads directory exists
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-    console.log('Uploads directory created:', uploadDir);
-} else {
-    console.log('Uploads directory exists:', uploadDir);
+try {
+    if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+        console.log('Uploads directory created:', uploadDir);
+    } else {
+        console.log('Uploads directory exists:', uploadDir);
+    }
+} catch (error) {
+    console.error('Error ensuring uploads directory exists:', error);
 }
 
 app.use('/uploads', express.static(uploadDir));
