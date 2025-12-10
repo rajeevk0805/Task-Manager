@@ -15,12 +15,25 @@ const __dirname = path.dirname(__filename);
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, '..', 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
+// In a serverless environment, we might not have write access to the filesystem
+// So we'll only attempt to create the directory if we're not in a Vercel environment
+if (!process.env.VERCEL) {
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
 }
 
 // Helper function to save image locally
 const saveLocalImage = (file, res) => {
+    // In a serverless environment, we might not have write access to the filesystem
+    // So we'll return an error if we're in a Vercel environment and Cloudinary is not configured
+    if (process.env.VERCEL) {
+        return res.status(500).json({ 
+            message: "Local image storage is not available in serverless environment. Please configure Cloudinary.",
+            success: false
+        });
+    }
+    
     try {
         // Generate unique filename
         const timestamp = Date.now();
@@ -99,8 +112,16 @@ router.post("/upload-image",uploadSingleImage,(req,res)=>{
                 { folder: "task_manager_profiles" },
                 (error, result) => {
                     if (error) {
-                        // Fallback to local storage
-                        saveLocalImage(req.file, res);
+                        // Fallback to local storage only if not in Vercel environment
+                        if (!process.env.VERCEL) {
+                            saveLocalImage(req.file, res);
+                        } else {
+                            return res.status(500).json({ 
+                                message: "Failed to upload to Cloudinary and local storage is not available in serverless environment",
+                                success: false,
+                                error: error.message 
+                            });
+                        }
                         return;
                     }
                     
@@ -115,7 +136,15 @@ router.post("/upload-image",uploadSingleImage,(req,res)=>{
             // Write buffer to the stream
             uploadStream.end(req.file.buffer);
         } else {
-            saveLocalImage(req.file, res);
+            // Only save locally if not in Vercel environment
+            if (!process.env.VERCEL) {
+                saveLocalImage(req.file, res);
+            } else {
+                res.status(500).json({ 
+                    message: "Cloudinary is not configured and local storage is not available in serverless environment",
+                    success: false
+                });
+            }
         }
     } catch (error) {
         res.status(500).json({ 

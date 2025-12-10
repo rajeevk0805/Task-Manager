@@ -1,5 +1,12 @@
 import dotenv from "dotenv";
-dotenv.config();
+// Load different .env files based on environment
+if (process.env.VERCEL) {
+  // In Vercel environment, environment variables are set in the dashboard
+  // We don't need to load a .env file
+} else {
+  // In local development, load .env file
+  dotenv.config();
+}
 
 import userRoutes from "./routes/userRoutes.js";
 import taskRoutes from "./routes/taskRoutes.js";
@@ -28,6 +35,12 @@ const corsOptions = {
             'http://127.0.0.1:5173',
             process.env.CLIENT_URL // Your production frontend URL
         ];
+        
+        // In Vercel environment, be more permissive if CLIENT_URL is not set
+        if (process.env.VERCEL && !process.env.CLIENT_URL) {
+            callback(null, true);
+            return;
+        }
         
         // Check if the origin is in our allowed list
         if (allowedOrigins.includes(origin) || !process.env.CLIENT_URL) {
@@ -63,16 +76,22 @@ app.use(express.json({ limit: '10mb' })) // Increase payload limit for file uplo
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
 // Serve static files from uploads directory
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Only serve static files if not in Vercel environment
+if (!process.env.VERCEL) {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+}
 
 // Connect Database
 try {
-    await connectDB();
+    // Only attempt to connect to DB if we have a URI
+    if (process.env.MONGODB_URI) {
+        await connectDB();
+    }
 } catch (error) {
-    // Continue running even if database connection fails
-    // This allows the upload route to still work
+    // In a serverless environment, we continue even if DB connection fails
+    // Individual routes will handle DB connection errors
 }
 
 // Routes
