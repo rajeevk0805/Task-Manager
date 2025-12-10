@@ -6,6 +6,7 @@ console.log("Environment variables debug:");
 console.log("CLOUDINARY_CLOUD_NAME:", process.env.CLOUDINARY_CLOUD_NAME);
 console.log("CLOUDINARY_API_KEY:", process.env.CLOUDINARY_API_KEY);
 console.log("CLOUDINARY_API_SECRET:", process.env.CLOUDINARY_API_SECRET ? "**** (SET)" : "NOT SET");
+console.log("CLIENT_URL:", process.env.CLIENT_URL);
 
 import userRoutes from "./routes/userRoutes.js";
 import taskRoutes from "./routes/taskRoutes.js";
@@ -21,15 +22,38 @@ import fs from "fs";
 
 const app = express();
 
-// Middleware to handle cors
-app.use(cors(
-    {
-        origin: process.env.CLIENT_URL || "*",
-        methods: ["GET", "POST", "PUT", "DELETE"],
-        allowedHeaders: ["Content-Type", "Authorization"],
-        credentials: true
-    }
-));
+// Enhanced CORS configuration
+const corsOptions = {
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        
+        // List of allowed origins
+        const allowedOrigins = [
+            'http://localhost:5173',
+            'http://localhost:3000',
+            'http://127.0.0.1:5173',
+            process.env.CLIENT_URL // Your production frontend URL
+        ];
+        
+        // Check if the origin is in our allowed list
+        if (allowedOrigins.indexOf(origin) !== -1 || !process.env.CLIENT_URL) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
+    credentials: true,
+    optionsSuccessStatus: 200 // Some legacy browsers (IE11, various SmartTVs) choke on 204
+};
+
+// Handle preflight requests for all routes
+app.options('*', cors(corsOptions));
+
+// Apply CORS middleware
+app.use(cors(corsOptions));
 
 // Middleware
 app.use(express.json({ limit: '10mb' })) // Increase payload limit for file uploads

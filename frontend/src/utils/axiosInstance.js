@@ -56,11 +56,17 @@ const axiosInstance = axios.create({
     headers: {
         Accept: "application/json",
     },
+    withCredentials: true // This is important for CORS requests that need to send cookies/credentials
 });
 
 // Request Interceptor
 axiosInstance.interceptors.request.use(
     (config) => {
+        // Ensure Content-Type is set for POST/PUT requests
+        if (!config.headers['Content-Type'] && (config.method === 'post' || config.method === 'put')) {
+            config.headers['Content-Type'] = 'application/json';
+        }
+        
         const token = localStorage.getItem("token");
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
@@ -94,7 +100,7 @@ axiosInstance.interceptors.response.use(
             }
         } else if (error.code === "ECONNABORTED") {
             console.error("Request timed out, please try again later.");
-        } else {
+        } else if (error.message === "Network Error") {
             console.error("Network error, please check connection.");
         }
 
