@@ -7,29 +7,17 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Ensure uploads directory exists
-const uploadDir = path.join(__dirname, "..", "uploads");
-try {
-    if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-    }
-} catch (error) {
-    console.error("Error creating uploads directory:", error);
-}
-
 // Use memory storage instead of disk storage for better Vercel compatibility
 const storage = multer.memoryStorage();
 
 //file filter
 const fileFilter = (req, file, cb) => {
-  console.log("File filter processing file:", file);
-  const allowedTypes = ["image/jpeg", "image/png", "image/jpg"];
+  // Added image/webp to the allowed types
+  const allowedTypes = ["image/jpeg", "image/png", "image/jpg", "image/webp"];
   if (allowedTypes.includes(file.mimetype)) {
-    console.log("File type accepted");
     cb(null, true);
   } else {
-    console.log("File type rejected:", file.mimetype);
-    cb(new Error("Invalid file type. Only JPEG, PNG, and JPG are allowed."));
+    cb(new Error("Invalid file type. Only JPEG, PNG, JPG, and WebP are allowed."));
   }
 };
 
@@ -40,5 +28,20 @@ const upload = multer({
         fileSize: 5 * 1024 * 1024 // 5MB limit
     }
 });
+
+// Export a custom middleware that wraps the upload to add error handling
+export const uploadSingleImage = (req, res, next) => {
+  // Call the multer middleware
+  upload.single("image")(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({
+        message: "File upload error: " + err.message,
+        success: false
+      });
+    }
+    
+    next();
+  });
+};
 
 export default upload;

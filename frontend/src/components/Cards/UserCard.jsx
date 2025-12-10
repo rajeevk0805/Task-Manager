@@ -1,14 +1,27 @@
 import React from "react";
 
 const UserCard = ({ userInfo }) => {
+  // Fallback for profile image
+  const getProfileImageSrc = (imageUrl) => {
+    // If imageUrl is null/empty, return a placeholder
+    if (!imageUrl) {
+      return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'%3E%3Crect width='150' height='150' fill='%23ddd'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='24' fill='%23888'%3ENo Image%3C/text%3E%3C/svg%3E";
+    }
+    return imageUrl;
+  };
+
   return (
     <div className="user-card p-2">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <img
-            src={userInfo?.profileImageUrl}
+            src={getProfileImageSrc(userInfo?.profileImageUrl)}
             alt={"Avatar"}
             className="w-12 h-12 rounded-full border-2 border-white"
+            onError={(e) => {
+              // If the image fails to load, use a placeholder
+              e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'%3E%3Crect width='150' height='150' fill='%23ddd'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='24' fill='%23888'%3ENo Image%3C/text%3E%3C/svg%3E";
+            }}
           />
           <div className="">
             <p className="text-sm font-medium">{userInfo?.name}</p>

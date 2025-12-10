@@ -1,5 +1,12 @@
 import dotenv from "dotenv";
 dotenv.config();
+
+// Debug environment variables
+console.log("Environment variables debug:");
+console.log("CLOUDINARY_CLOUD_NAME:", process.env.CLOUDINARY_CLOUD_NAME);
+console.log("CLOUDINARY_API_KEY:", process.env.CLOUDINARY_API_KEY);
+console.log("CLOUDINARY_API_SECRET:", process.env.CLOUDINARY_API_SECRET ? "**** (SET)" : "NOT SET");
+
 import userRoutes from "./routes/userRoutes.js";
 import taskRoutes from "./routes/taskRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
@@ -28,6 +35,11 @@ app.use(cors(
 app.use(express.json({ limit: '10mb' })) // Increase payload limit for file uploads
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
+// Serve static files from uploads directory
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // Connect Database
 console.log("Connecting to database...");
 try {
@@ -38,28 +50,6 @@ try {
     // This allows the upload route to still work
 }
 
-// Serve static files from uploads directory
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const uploadDir = path.join(__dirname, 'uploads');
-
-console.log("Upload directory path:", uploadDir);
-
-// Ensure uploads directory exists
-try {
-    if (!fs.existsSync(uploadDir)) {
-        console.log("Creating uploads directory");
-        fs.mkdirSync(uploadDir, { recursive: true });
-        console.log('Uploads directory created:', uploadDir);
-    } else {
-        console.log('Uploads directory exists:', uploadDir);
-    }
-} catch (error) {
-    console.error('Error ensuring uploads directory exists:', error);
-}
-
-app.use('/uploads', express.static(uploadDir));
-
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
@@ -69,16 +59,6 @@ app.use("/api/reports", reportRoutes)
 // Health check endpoint
 app.get('/health', (req, res) => {
     res.status(200).json({ status: 'OK', message: 'Backend is running' });
-});
-
-// Test endpoint for uploads
-app.get('/test-upload', (req, res) => {
-    res.status(200).json({ 
-        status: 'OK', 
-        message: 'Upload endpoint is accessible',
-        uploadDir: uploadDir,
-        uploadDirExists: fs.existsSync(uploadDir)
-    });
 });
 
 // For Vercel deployment, we need to export the app

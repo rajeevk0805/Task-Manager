@@ -34,9 +34,18 @@ const SelectUsers = ({ selectedUsers, setSelectedUsers }) => {
     setIsModalOpen(false);
   };
 
+  // Fallback for profile image
+  const getProfileImageSrc = (imageUrl) => {
+    // If imageUrl is null/empty, return a placeholder
+    if (!imageUrl) {
+      return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'%3E%3Crect width='150' height='150' fill='%23ddd'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='24' fill='%23888'%3ENo Image%3C/text%3E%3C/svg%3E";
+    }
+    return imageUrl;
+  };
+
   const selectedUserAvatars = allUsers
     .filter((user) => selectedUsers.includes(user._id))
-    .map((user) => user.profileImageUrl);
+    .map((user) => getProfileImageSrc(user.profileImageUrl));
 
   useEffect(() => {
     getAllUsers();
@@ -71,7 +80,15 @@ const SelectUsers = ({ selectedUsers, setSelectedUsers }) => {
         <div className="space-y-4 h-[60vh] overflow-y-auto">
           {allUsers.map((user) => (
             <div key={user._id} className="flex items-center gap-4 border-b border-gray-200">
-              <img src={user.profileImageUrl} alt={user.name} className="w-10 h-10 rounded-full" />
+              <img 
+                src={getProfileImageSrc(user.profileImageUrl)} 
+                alt={user.name} 
+                className="w-10 h-10 rounded-full" 
+                onError={(e) => {
+                  // If the image fails to load, use a placeholder
+                  e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'%3E%3Crect width='150' height='150' fill='%23ddd'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='24' fill='%23888'%3ENo Image%3C/text%3E%3C/svg%3E";
+                }}
+              />
               <div className="flex-1">
                 <p className="font-medium text-gray-800 dark:text-white">{user.name}</p>
                 <p className="text-[13px] text-gray-500">{user.email}</p>

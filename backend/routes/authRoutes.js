@@ -1,10 +1,76 @@
 import express from "express";
 import { getUserProfile, loginUser, registerUser, updateUserProfile } from "../controller/authController.js";
 import { protect } from "../middlewares/authMiddleware.js";
-import upload from "../middlewares/uploadMiddleware.js";
+import upload, { uploadSingleImage } from "../middlewares/uploadMiddleware.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from 'url';
+
+// Import Cloudinary
+import { v2 as cloudinary } from 'cloudinary';
+
+// Get the directory name
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Ensure uploads directory exists
+const uploadsDir = path.join(__dirname, '..', 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Helper function to save image locally
+const saveLocalImage = (file, res) => {
+    try {
+        // Generate unique filename
+        const timestamp = Date.now();
+        const ext = path.extname(file.originalname);
+        const filename = `${timestamp}-${file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+        const filePath = path.join(uploadsDir, filename);
+        
+        // Save buffer to file
+        fs.writeFileSync(filePath, file.buffer);
+        
+        // Generate URL (assuming static serving from /uploads)
+        const imageUrl = `/uploads/${filename}`;
+        
+        res.status(200).json({ 
+            imageUrl: imageUrl,
+            success: true,
+            filename: file.originalname
+        });
+    } catch (error) {
+        res.status(500).json({ 
+            message: "Failed to save image locally",
+            success: false,
+            error: error.message 
+        });
+    }
+}
+
+// Configure Cloudinary with environment variables
+const configureCloudinary = () => {
+  let cloudinaryConfigured = false;
+  
+  try {
+    // Check if all required environment variables are set
+    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+      return false;
+    }
+    
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET
+    });
+    
+    cloudinaryConfigured = true;
+  } catch (configError) {
+    cloudinaryConfigured = false;
+  }
+  
+  return cloudinaryConfigured;
+};
 
 const router = express.Router();
 
@@ -13,95 +79,45 @@ router.post("/login",loginUser)
 router.get("/profile",protect,getUserProfile)
 router.put("/profile",protect,updateUserProfile)
 
-router.post("/upload-image",upload.single("image"),(req,res)=>{
-    console.log("=== UPLOAD ROUTE START ===");
+router.post("/upload-image",uploadSingleImage,(req,res)=>{
+    // Configure Cloudinary when the route is called
+    const cloudinaryConfigured = configureCloudinary();
     
     try {
-        console.log("Upload request received");
-        
-        // Log request details for debugging
-        console.log("Request headers:", JSON.stringify(req.headers, null, 2));
-        console.log("Request file:", req.file ? {
-            fieldname: req.file.fieldname,
-            originalname: req.file.originalname,
-            encoding: req.file.encoding,
-            mimetype: req.file.mimetype,
-            size: req.file.size
-        } : "No file");
-        
         // Improved error handling
         if(!req.file){
-            console.log("No file uploaded in request");
             return res.status(400).json({ 
                 message: "No file uploaded",
                 success: false 
             });
         }
         
-        console.log("Processing uploaded file");
-        // With memory storage, we need to write the file to disk
-        const __filename = fileURLToPath(import.meta.url);
-        const __dirname = path.dirname(__filename);
-        const uploadDir = path.join(__dirname, "..", "uploads");
-        
-        console.log("Upload directory path:", uploadDir);
-        console.log("Upload directory exists:", fs.existsSync(uploadDir));
-        
-        // Ensure uploads directory exists
-        try {
-            if (!fs.existsSync(uploadDir)) {
-                console.log("Creating uploads directory");
-                fs.mkdirSync(uploadDir, { recursive: true });
-                console.log("Uploads directory created successfully");
-            } else {
-                console.log("Uploads directory already exists");
-            }
-        } catch (dirError) {
-            console.error("Error creating/uploads directory:", dirError);
-            return res.status(500).json({ 
-                message: "Failed to create uploads directory",
-                success: false,
-                error: dirError.message 
-            });
+        // If Cloudinary is configured, use it; otherwise save locally
+        if (cloudinaryConfigured) {
+            // Upload to Cloudinary
+            const uploadStream = cloudinary.uploader.upload_stream(
+                { folder: "task_manager_profiles" },
+                (error, result) => {
+                    if (error) {
+                        // Fallback to local storage
+                        saveLocalImage(req.file, res);
+                        return;
+                    }
+                    
+                    res.status(200).json({ 
+                        imageUrl: result.secure_url,
+                        success: true,
+                        filename: result.original_filename || req.file.originalname
+                    });
+                }
+            );
+            
+            // Write buffer to the stream
+            uploadStream.end(req.file.buffer);
+        } else {
+            saveLocalImage(req.file, res);
         }
-        
-        // Write buffer to file
-        const fileName = Date.now() + "-" + req.file.originalname;
-        const filePath = path.join(uploadDir, fileName);
-        
-        console.log("Writing file to:", filePath);
-        
-        try {
-            fs.writeFileSync(filePath, req.file.buffer);
-            console.log("File written successfully");
-        } catch (writeError) {
-            console.error("Error writing file:", writeError);
-            return res.status(500).json({ 
-                message: "Failed to write file to disk",
-                success: false,
-                error: writeError.message 
-            });
-        }
-        
-        // Use a more reliable way to construct the image URL
-        const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get("host")}`;
-        console.log("Base URL:", baseUrl);
-        
-        const imageUrl = `${baseUrl}/uploads/${fileName}`;
-        console.log("Generated image URL:", imageUrl);
-        
-        console.log("=== UPLOAD ROUTE END SUCCESS ===");
-        res.status(200).json({ 
-            imageUrl,
-            success: true,
-            filename: fileName
-        })
     } catch (error) {
-        console.error("=== UPLOAD ROUTE ERROR ===");
-        console.error("Error processing uploaded file:", error);
-        console.error("Error stack:", error.stack);
-        console.log("=== UPLOAD ROUTE END ERROR ===");
-        
         res.status(500).json({ 
             message: "Failed to process uploaded file",
             success: false,
