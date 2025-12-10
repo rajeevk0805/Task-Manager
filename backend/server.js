@@ -1,13 +1,6 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-// Debug environment variables
-console.log("Environment variables debug:");
-console.log("CLOUDINARY_CLOUD_NAME:", process.env.CLOUDINARY_CLOUD_NAME);
-console.log("CLOUDINARY_API_KEY:", process.env.CLOUDINARY_API_KEY);
-console.log("CLOUDINARY_API_SECRET:", process.env.CLOUDINARY_API_SECRET ? "**** (SET)" : "NOT SET");
-console.log("CLIENT_URL:", process.env.CLIENT_URL);
-
 import userRoutes from "./routes/userRoutes.js";
 import taskRoutes from "./routes/taskRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
@@ -37,7 +30,7 @@ const corsOptions = {
         ];
         
         // Check if the origin is in our allowed list
-        if (allowedOrigins.indexOf(origin) !== -1 || !process.env.CLIENT_URL) {
+        if (allowedOrigins.includes(origin) || !process.env.CLIENT_URL) {
             callback(null, true);
         } else {
             callback(new Error('Not allowed by CORS'));
@@ -49,11 +42,21 @@ const corsOptions = {
     optionsSuccessStatus: 200 // Some legacy browsers (IE11, various SmartTVs) choke on 204
 };
 
-// Handle preflight requests for all routes
-app.options('*', cors(corsOptions));
-
-// Apply CORS middleware
+// Apply CORS middleware to all routes
 app.use(cors(corsOptions));
+
+// Explicitly handle preflight requests for all routes
+app.use((req, res, next) => {
+    if (req.method === 'OPTIONS') {
+        res.header('Access-Control-Allow-Origin', process.env.CLIENT_URL || '*');
+        res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+        res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+        res.header('Access-Control-Allow-Credentials', 'true');
+        res.sendStatus(200);
+    } else {
+        next();
+    }
+});
 
 // Middleware
 app.use(express.json({ limit: '10mb' })) // Increase payload limit for file uploads
@@ -65,11 +68,9 @@ const __dirname = path.dirname(__filename);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Connect Database
-console.log("Connecting to database...");
 try {
     await connectDB();
 } catch (error) {
-    console.error("Failed to connect to database:", error);
     // Continue running even if database connection fails
     // This allows the upload route to still work
 }
